@@ -73,10 +73,10 @@ public class ClientGUI extends Client {
                     long time = ByteBuffer.wrap(timePacket).getLong();
                     if(newBid != bid) {
                         bid = newBid;
-                        System.out.println("Max bid: " + bid);
+                        System.out.println("Max bid: " + df.format(bid));
                         System.out.println("Current buyer: " + buyerName.getText());
                         System.out.println();
-                        maxBid.setText("$" + bid);
+                        maxBid.setText("$" + df.format(bid));
                         buyerName.setText(name);
                     }
                     timeLeft.setText(time + " seconds");

@@ -4,6 +4,7 @@ import java.net.BindException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.text.DecimalFormat;
 import java.util.Random;
 
 public abstract class Client {
@@ -13,6 +14,7 @@ public abstract class Client {
     DatagramSocket socket;
     double bid = 0;
     int port;
+    DecimalFormat df = new DecimalFormat("#0.00");
 
     public void findGoodPort() {
         DatagramSocket testSocket;

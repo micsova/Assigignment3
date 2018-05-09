@@ -19,6 +19,7 @@ public class ClientText extends Client {
 
     double newBid;
     String buyerName = "No current buyer";
+    String name;
 
     private class MyTask implements Runnable {
 
@@ -51,7 +52,7 @@ public class ClientText extends Client {
                     if (newBid != bid) {
                         bid = newBid;
                         System.out.println("\n\n***New Max Bid***\n");
-                        System.out.print("\rMax bid: $" + bid + "\tBuyer address: " + buyerName);
+                        System.out.print("\rMax bid: $" + df.format(bid) + "\tBuyer address: " + buyerName);
                         System.out.print("\tBid: ");
                     }
                 }
@@ -62,7 +63,7 @@ public class ClientText extends Client {
     public void main() {
         Scanner kb = new Scanner(System.in);
         System.out.print("Please enter your name: ");
-        String name = kb.nextLine();
+        name = kb.nextLine();
         for (; ; ) {
             try {
                 if (socket == null) {
@@ -74,7 +75,7 @@ public class ClientText extends Client {
                     contactServer(name);
                 }
                 bid(kb.nextLine());
-                System.out.print("\nMax bid: $" + bid + "\tBuyer address: " + buyerName);
+                System.out.print("\nMax bid: $" + df.format(bid) + "\tBuyer address: " + buyerName);
                 System.out.print("\tBid: $");
             } catch (IOException e) {}
         }
@@ -87,7 +88,7 @@ public class ClientText extends Client {
         try {
             socket.send(packet);
         } catch (IOException e) {}
-        System.out.print("\nMax bid: $" + bid + "\tBuyer address: " + buyerName);
+        System.out.print("\nMax bid: $" + df.format(bid) + "\tBuyer address: " + buyerName);
         System.out.print("\tBid: $");
     }
 
@@ -97,18 +98,14 @@ public class ClientText extends Client {
             String[] parts = input.split("\\.");
             if (parts.length > 1) {
                 if (parts[1].length() > 2) {
-                    System.out.println("\n***Amount can only have up to two decimal places.***\n");
-                    System.out.print("Max bid: $" + bid + "\tBuyer address: " + buyerName);
-                    System.out.print("\tBid: $");
+                    System.out.print("\n***Amount can only have up to two decimal places.***\n");
                     return;
                 }
             }
             try {
                 bidAmount = Double.parseDouble(input);
             } catch (NumberFormatException e) {
-                System.out.println("\n***Invalid amount.***\n");
-                System.out.print("Max bid: $" + bid + "\tBuyer address: " + buyerName);
-                System.out.print("\tBid: $");
+                System.out.print("\n***Invalid amount.***\n");
                 return;
             }
 
@@ -117,7 +114,7 @@ public class ClientText extends Client {
                     8, address, SERVER_PORT);
             socket.send(sendPacket);
             if(!input.equals("-1")) {
-                System.out.println("\n***Client sent $" + input + " as bid***");
+                System.out.println("\n***" + name + " sent $" + input + " as bid***");
             }
         } catch (IOException e) {}
     }
