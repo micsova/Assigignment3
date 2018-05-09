@@ -8,7 +8,6 @@ class Server {
 
     public static void main(String args[]) throws Exception {
 
-        // This 3-d String array will hold 100 clients along with their IP, Port#, and name
         String[] names = new String[100];
         InetAddress[] addresses = new InetAddress[100];
         int[] ports = new int[100];
