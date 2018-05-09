@@ -1,6 +1,7 @@
 package Assignment3;
 
 import javax.swing.*;
+import javax.xml.bind.SchemaOutputResolver;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
@@ -11,12 +12,13 @@ public class ClientGUI extends Client {
     JFrame window;
     private JPanel panel1;
     JLabel maxBid;
-    JLabel buyerAddress;
+    JLabel buyerName;
     JLabel timeLeft;
     private JTextField bidAmount;
     private JButton bidButton;
     private JLabel errorMessage;
     boolean active = true;
+    String name;
 
     private class Listener implements ActionListener, KeyListener {
 
@@ -45,26 +47,41 @@ public class ClientGUI extends Client {
     private class MyTask implements Runnable {
         public void run() {
             for(;;) {
-                byte[] receiveData = new byte[2000];
+                byte[] bidPacket = new byte[8];
+                byte[] namePacket = new byte[1000];
+                byte[] timePacket = new byte[8];
                 try {
                     DatagramSocket clientSocket = new DatagramSocket(port + 1);
-                    DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                    clientSocket.receive(receivePacket);
-                    bid = ByteBuffer.wrap(receiveData).getDouble();
+                    DatagramPacket receivePacket = new DatagramPacket(bidPacket, bidPacket.length);
+                    for(int i = 0; i < 1; i++) {
+                        try {
+                            clientSocket.receive(receivePacket);
+                        } catch (SocketTimeoutException e) {
+                            i--;
+                        }
+                    }
+                    double newBid = ByteBuffer.wrap(bidPacket).getDouble();
 
                     //Uncomment this to add receiving of buyer address and time left in auction
                     //CLIENT TEXT SHOULDN'T DO ANYTHING WITH TIME OTHER THAN RECEIVE TO CLEAR THE PACKET
-                    /*
-                    receivePacket = new DatagramPacket(addressPacket, addressPacket.length);
+
+                    receivePacket = new DatagramPacket(namePacket, namePacket.length);
                     clientSocket.receive(receivePacket);
-                    buyerAddress = new String(addressPacket);
-                    buyerAddress = buyerAddress.trim();
+                    String name = new String(namePacket).trim();
                     receivePacket = new DatagramPacket(timePacket, timePacket.length);
-                    socket.receive(receivePacket);
-                    */
-                    System.out.println("Max bid: " + bid);
-                    maxBid.setText("$" + bid);
+                    clientSocket.receive(receivePacket);
+                    long time = ByteBuffer.wrap(timePacket).getLong();
+                    if(newBid != bid) {
+                        bid = newBid;
+                        System.out.println("Max bid: " + bid);
+                        System.out.println("Current buyer: " + buyerName.getText());
+                        System.out.println();
+                        maxBid.setText("$" + bid);
+                        buyerName.setText(name);
+                    }
+                    timeLeft.setText(time + " seconds");
                     clientSocket.close();
+                    window.pack();
                 } catch (IOException e) {}
             }
         }
@@ -83,20 +100,34 @@ public class ClientGUI extends Client {
 
         startPanel.setSize(300, 80);
         // Initialize the components
-        final JLabel label = new JLabel("Would you like to start the bidding app?");
+        final JLabel label = new JLabel("Enter a name to start the bidding app:");
+        final JTextField textField = new JTextField("", 12);
         final JButton startButton = new JButton("Yes");
 
         //format the components
 
         // Setup the action listeners
         startButton.addActionListener((ActionEvent event) -> {
-            startPanel.setVisible(false);
-            window.getContentPane().remove(startPanel);
-            bidWindow();
+            if(!textField.getText().equals("")) {
+                name = textField.getText();
+                startPanel.setVisible(false);
+                window.getContentPane().remove(startPanel);
+                bidWindow();
+            }
+        });
+
+        textField.addActionListener((ActionEvent event) -> {
+            if(!textField.getText().equals("")) {
+                name = textField.getText();
+                startPanel.setVisible(false);
+                window.getContentPane().remove(startPanel);
+                bidWindow();
+            }
         });
 
         // Add all of the labels to the JFrame
         startPanel.add(label);
+        startPanel.add(textField);
         startPanel.add(startButton);
         window.getContentPane().add(startPanel);
         window.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -116,8 +147,8 @@ public class ClientGUI extends Client {
         layout2.setAutoCreateContainerGaps(true);
         final JLabel label1 = new JLabel("Current Maximum Bid:");
         maxBid = new JLabel("$0.00");
-        final JLabel label2 = new JLabel("Current Buyer Address:");
-        buyerAddress = new JLabel("0.0.0.0:0");
+        final JLabel label2 = new JLabel("Current Buyer Name:");
+        buyerName = new JLabel("No current buyer");
         layout2.setHorizontalGroup(
                 layout2.createSequentialGroup()
                         .addComponent(label1)
@@ -126,7 +157,8 @@ public class ClientGUI extends Client {
                         .addPreferredGap(LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(label2)
                         .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(buyerAddress)
+                        .addComponent(buyerName)
+                        .addContainerGap()
         );
         layout2.setVerticalGroup(
                 layout2.createSequentialGroup()
@@ -134,7 +166,7 @@ public class ClientGUI extends Client {
                                 .addComponent(label1)
                                 .addComponent(maxBid)
                                 .addComponent(label2)
-                                .addComponent(buyerAddress))
+                                .addComponent(buyerName))
         );
         //Panel1 -> Panel3
         final JPanel panel3 = new JPanel();
@@ -207,8 +239,7 @@ public class ClientGUI extends Client {
             e.printStackTrace();
         }
         window.setContentPane(panel1);
-        window.setResizable(false);
-        window.setTitle("Bidding");
+        window.setTitle(name);
         window.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -259,6 +290,10 @@ public class ClientGUI extends Client {
 
     public void contactServer() {
         bid("-1");
+        DatagramPacket packet = new DatagramPacket(name.getBytes(), name.length(), address, SERVER_PORT);
+        try {
+            socket.send(packet);
+        } catch (IOException e) {}
     }
 
     public void main() {

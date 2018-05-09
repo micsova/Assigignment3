@@ -1,136 +1,135 @@
 package Assignment3;
 
-import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 
-public class Server {
 
-    private static DatagramSocket socket;
-    private static DatagramPacket bidPacket, packet;
-    private static InetAddress group;
-    private static byte[] num = new byte[8];
-    private static double greatest = 0;
-    private static InetAddress buyerAddress = null;
-    private static int buyerPort = 0;
+class Server {
 
-    public static void main(String[] args) {
-        //Open a new socket
-        try {
-            socket = new DatagramSocket(2711);
-            socket.setSoTimeout(100);
-            group = InetAddress.getByName("234.123.12.12");
-            System.out.println(group);
-        } catch (SocketException | UnknownHostException e) {
-            e.printStackTrace();
-        }
+    public static void main(String args[]) throws Exception {
 
-        try {
-            for(;;) {
-                boolean restart = false;
-                boolean wait = true;
-                long bidStart = System.currentTimeMillis();
-                int j = 0;
-                for (; ; ) {
-                    bidPacket = new DatagramPacket(num, num.length);
-                    for (int i = 0; i < 1; i++, j++) {
-                        if(wait) {
-                            packet = new DatagramPacket(ByteBuffer.allocate(8).putDouble(greatest).array(), 8,
-                                    group, 22711);
-                            socket.send(packet);
-                            String buyer = "0.0.0.0:0";
-                            packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(buyer.length()).array(), 4,
-                                    group, 22711);
-                            socket.send(packet);
-                            packet = new DatagramPacket(buyer.getBytes(), buyer.length(), group, 22711);
-                            socket.send(packet);
-                            packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(60).array(),
-                                    4, group, 22711);
-                            socket.send(packet);
-                            packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(1).array(), 4, group,
-                                    22711);
-                            socket.send(packet);
-                            wait = false;
-                        }
-                        if(((System.currentTimeMillis() - bidStart) / 1000) >= 60) {
-                            buyerAddress = null;
-                            buyerPort = 0;
-                            greatest = 0;
-                            restart = true;
-                            break;
-                        }
-                        try {
-                            socket.receive(bidPacket);
-                        } catch (SocketTimeoutException e) {
-                            i--;
-                            if (j > 10) {
-                                packet = new DatagramPacket(ByteBuffer.allocate(8).putDouble(greatest).array(),
-                                        8, group, 22711);
-                                socket.send(packet);
-                                if (buyerAddress != null) {
-                                    String buyer = buyerAddress + ":" + buyerPort;
-                                    buyer = buyer.substring(1);
-                                    packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(buyer.length()).array(),
-                                            4, group, 22711);
-                                    socket.send(packet);
-                                    packet = new DatagramPacket(buyer.getBytes(), buyer.length(), group, 22711);
-                                    socket.send(packet);
-                                    int timeLeft = 60 - (int) ((System.currentTimeMillis() - bidStart) / 1000);
-                                    packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(timeLeft).array(),
-                                            4, group, 22711);
-                                    socket.send(packet);
-                                    packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(0).array(), 4,
-                                            group, 22711);
-                                    socket.send(packet);
-                                } else {
-                                    String buyer = "0.0.0.0:0";
-                                    packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(buyer.length()).array(),
-                                            4, group, 22711);
-                                    socket.send(packet);
-                                    packet = new DatagramPacket(buyer.getBytes(), buyer.length(), group, 22711);
-                                    socket.send(packet);
-                                    int timeLeft = 60 - (int) ((System.currentTimeMillis() - bidStart) / 1000);
-                                    packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(timeLeft).array(),
-                                            4, group, 22711);
-                                    socket.send(packet);
-                                    packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(0).array(), 4,
-                                            group, 22711);
-                                    socket.send(packet);
-                                }
-                                j = 0;
-                            }
-                        }
-                    }
-                    if(restart) {
+        // This 3-d String array will hold 100 clients along with their IP, Port#, and name
+        String[] names = new String[100];
+        InetAddress[] addresses = new InetAddress[100];
+        int[] ports = new int[100];
+        int count = 0;
+
+        double currentBid = 0;
+        String currentBuyer = "No current buyer";
+        DatagramSocket serverSocket = new DatagramSocket(2711);
+        serverSocket.setSoTimeout(1000);
+        byte[] receiveData = new byte[2000];
+        boolean newBid;
+
+        for (; ; ) {
+            long bidStart = System.currentTimeMillis();
+            newBid = false;
+            System.out.println("New bid");
+            for (int i = 0; i < count; i++) { //When a new bid starts, send info to "reset" the clients for the new bid
+                DatagramPacket sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putDouble(currentBid).array(),
+                        8, addresses[i], ports[i]);
+                serverSocket.send(sendPacket);
+                sendPacket = new DatagramPacket(currentBuyer.getBytes(), currentBuyer.length(), addresses[i],
+                        ports[i]);
+                serverSocket.send(sendPacket);
+                long timeLeft = (60 - (System.currentTimeMillis() - bidStart) / 1000);
+                sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putLong(timeLeft).array(), 8,
+                        addresses[i], ports[i]);
+                serverSocket.send(sendPacket);
+            }
+            for (; ; ) {
+                DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                for (int i = 0; i < 1; i++) {
+                    if (((System.currentTimeMillis() - bidStart) / 1000) >= 60) { //Every minute, start a new bid
+                        currentBid = 0;
+                        currentBuyer = "No current buyer";
+                        newBid = true;
                         break;
                     }
-                    double b = ByteBuffer.wrap(bidPacket.getData()).getDouble();
-                    if (b > greatest) {
-                        buyerAddress = bidPacket.getAddress();
-                        buyerPort = bidPacket.getPort();
-                        greatest = b;
-                        packet = new DatagramPacket(ByteBuffer.allocate(8).putDouble(greatest).array(), 8, group,
-                                22711);
-                        socket.send(packet);
-                        String buyer = buyerAddress + ":" + buyerPort;
-                        buyer = buyer.substring(1);
-                        packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(buyer.length()).array(), 4,
-                                group, 22711);
-                        socket.send(packet);
-                        packet = new DatagramPacket(buyer.getBytes(), buyer.length(), group, 22711);
-                        socket.send(packet);
-                        int timeLeft = 60 - (int) ((System.currentTimeMillis() - bidStart) / 1000);
-                        packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(timeLeft).array(),
-                                4, group, 22711);
-                        socket.send(packet);
-                        packet = new DatagramPacket(ByteBuffer.allocate(4).putInt(0).array(), 4, group,
-                                22711);
-                        socket.send(packet);
-                        System.out.println("Greatest bid = " + greatest + "\t Buyer = " +
-                                (buyerAddress + ":" + buyerPort).substring(1));
+                    try {
+                        serverSocket.receive(receivePacket);
+                    } catch (SocketTimeoutException e) {
+                        i--;
+                        for (int j = 0; j < count; j++) { //Every second, send an update with all info to all clients
+                            DatagramPacket sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putDouble(currentBid)
+                                    .array(), 8, addresses[j], ports[j]);
+                            serverSocket.send(sendPacket);
+                            sendPacket = new DatagramPacket(currentBuyer.getBytes(), currentBuyer.length(),
+                                    addresses[j], ports[j]);
+                            serverSocket.send(sendPacket);
+                            long timeLeft = (60 - (System.currentTimeMillis() - bidStart) / 1000);
+                            sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putLong(timeLeft).array(), 8,
+                                    addresses[j], ports[j]);
+                            serverSocket.send(sendPacket);
+                        }
+                    }
+                }
+                if(newBid) {
+                    break;
+                }
+
+                double bid = ByteBuffer.wrap(receivePacket.getData()).getDouble();
+
+                InetAddress IPAddress = receivePacket.getAddress();
+                int port = receivePacket.getPort();
+                if (bid == -1) {
+                    bidStart = System.currentTimeMillis();
+                    addresses[count] = IPAddress;
+                    ports[count] = port + 1;
+                    byte[] name = new byte[1000];
+                    receivePacket = new DatagramPacket(name, name.length);
+                    serverSocket.receive(receivePacket);
+                    names[count] = new String(name).trim();
+                    System.out.println("\nNew Bidder");
+                    System.out.println("IPAddress: " + addresses[count]);
+                    System.out.println("Port: " + ports[count]);
+                    System.out.println("Name: " + names[count]);
+                    //Send to the new client an update with all the info
+                    DatagramPacket sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putDouble(currentBid).array(),
+                            8, IPAddress, (port + 1));
+                    serverSocket.send(sendPacket);
+                    sendPacket = new DatagramPacket(currentBuyer.getBytes(), currentBuyer.length(), IPAddress,
+                            (port + 1));
+                    serverSocket.send(sendPacket);
+                    long timeLeft = (60 - (System.currentTimeMillis() - bidStart) / 1000);
+                    System.out.println(timeLeft);
+                    sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putLong(timeLeft).array(),
+                            8, IPAddress, (port + 1));
+                    serverSocket.send(sendPacket);
+                    count++;
+                } else {
+                    System.out.println("\nBid: " + bid);
+                    if (bid > currentBid) {
+                        currentBid = bid;
+                        for (int j = 0; j < count; j++) {
+                            if (addresses[j].equals(IPAddress) &&
+                                    ports[j] == (port + 1)) {
+                                System.out.println("Got match");
+                                currentBuyer = names[j];
+                                break;
+                            }
+                        }
+
+                        for (int j = 0; j < count; j++) { //Send to each client an update with the new bid
+                            IPAddress = addresses[j];
+                            port = ports[j];
+                            DatagramPacket sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putDouble(currentBid)
+                                    .array(), 8, IPAddress, port);
+                            System.out.println("Sending");
+                            serverSocket.send(sendPacket);
+                            sendPacket = new DatagramPacket(currentBuyer.getBytes(), currentBuyer.length(), IPAddress,
+                                    port);
+                            serverSocket.send(sendPacket);
+                            long timeLeft = (60 - (System.currentTimeMillis() - bidStart) / 1000);
+                            sendPacket = new DatagramPacket(ByteBuffer.allocate(8).putLong(timeLeft).array(), 8,
+                                    IPAddress, port);
+                            serverSocket.send(sendPacket);
+                        }
+                    } else {
+                        System.out.println((System.currentTimeMillis() - bidStart) / 1000);
                     }
                 }
             }
-        } catch (IOException e) {}
+        }
     }
 }
